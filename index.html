@@ -1,0 +1,859 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Credo chatbot flow — working preview</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Hanken+Grotesk:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --credo-red: #c92028;
+    --credo-red-dark: #a01820;
+    --ink: #1a1a1a;
+    --ink-soft: #4a4a4a;
+    --ink-faint: #8a8a8a;
+    --line: #e6e2dc;
+    --ivory: #faf7f2;
+    --bot-bubble: #f2efe9;
+    --user-bubble: #c92028;
+    --user-ink: #ffffff;
+    --system-ink: #6d6358;
+    --system-bg: #f5f0e6;
+    --phone-frame: #1a1a1a;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: 'Hanken Grotesk', system-ui, -apple-system, sans-serif;
+    background: var(--ivory);
+    color: var(--ink);
+    line-height: 1.5;
+  }
+  .wrap { max-width: 1320px; margin: 0 auto; padding: 32px 24px 80px; }
+  header { margin-bottom: 24px; }
+  header h1 { font-size: 22px; font-weight: 600; margin: 0; letter-spacing: -0.01em; }
+  header p { margin: 6px 0 0; font-size: 14px; color: var(--ink-soft); max-width: 820px; }
+
+  .layout { display: grid; grid-template-columns: 1fr 320px; gap: 32px; align-items: start; }
+  @media (max-width: 1120px) { .layout { grid-template-columns: 1fr; } }
+
+  .previews { display: flex; gap: 32px; flex-wrap: wrap; align-items: flex-start; }
+  .preview { display: flex; flex-direction: column; gap: 10px; }
+  .preview-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    font-weight: 600;
+  }
+  .preview-label .dim { color: var(--ink-faint); font-weight: 400; text-transform: none; letter-spacing: 0; }
+
+  /* Desktop chat: corner-widget look, ~380px */
+  .preview.desktop .chat {
+    width: 380px;
+    height: 620px;
+  }
+
+  /* Mobile chat: full-screen takeover inside a phone frame */
+  .preview.mobile .phone {
+    width: 395px;
+    background: var(--phone-frame);
+    border-radius: 36px;
+    padding: 10px;
+    box-shadow: 0 6px 24px rgba(0,0,0,0.18);
+  }
+  .preview.mobile .phone-inner {
+    border-radius: 28px;
+    overflow: hidden;
+    background: #fff;
+    position: relative;
+    height: 720px;
+    display: flex;
+    flex-direction: column;
+  }
+  .preview.mobile .status-bar {
+    background: var(--credo-red);
+    color: #fff;
+    padding: 6px 18px 4px;
+    font-size: 12px;
+    font-weight: 600;
+    display: flex; align-items: center; justify-content: space-between;
+  }
+  .preview.mobile .status-bar .dots {
+    display: inline-flex; gap: 3px; align-items: center;
+  }
+  .preview.mobile .status-bar .dots span { width: 4px; height: 4px; border-radius: 50%; background: #fff; opacity: 0.85; }
+  .preview.mobile .chat {
+    border-radius: 0;
+    border: none;
+    box-shadow: none;
+    flex: 1;
+    height: auto;
+  }
+  .preview.mobile .chat-head { padding: 12px 16px; }
+  .preview.mobile .chat-body { padding: 16px; }
+
+  /* Shared chat panel */
+  .chat {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 18px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+    box-shadow: 0 2px 12px rgba(0,0,0,0.04);
+  }
+  .chat-head {
+    background: var(--credo-red);
+    color: #fff;
+    padding: 14px 20px;
+    display: flex; align-items: center; gap: 12px;
+    flex-shrink: 0;
+  }
+  .chat-head-avatar {
+    width: 34px; height: 34px; border-radius: 50%;
+    background: #fff; color: var(--credo-red);
+    display: grid; place-items: center;
+    font-weight: 700; font-size: 15px;
+    letter-spacing: -0.02em;
+  }
+  .chat-head-title { font-weight: 600; font-size: 15px; line-height: 1.2; }
+  .chat-head-sub { font-size: 12px; opacity: 0.85; }
+  .chat-head-close {
+    margin-left: auto;
+    background: transparent; border: 0; color: #fff;
+    font-size: 18px; cursor: default; opacity: 0.85;
+    padding: 0;
+  }
+
+  .chat-body {
+    flex: 1;
+    padding: 20px;
+    overflow-y: auto;
+    display: flex; flex-direction: column; gap: 10px;
+    background: #fcfaf6;
+  }
+  .msg { display: flex; max-width: 82%; }
+  .msg.bot { align-self: flex-start; }
+  .msg.user { align-self: flex-end; }
+  .msg.system { align-self: stretch; justify-content: center; max-width: 100%; }
+  .msg .bubble {
+    padding: 10px 14px;
+    border-radius: 14px;
+    font-size: 14px;
+    line-height: 1.45;
+  }
+  .msg.bot .bubble {
+    background: var(--bot-bubble);
+    color: var(--ink);
+    border-bottom-left-radius: 4px;
+  }
+  .msg.user .bubble {
+    background: var(--user-bubble);
+    color: var(--user-ink);
+    border-bottom-right-radius: 4px;
+  }
+  .msg.system .bubble {
+    background: var(--system-bg);
+    color: var(--system-ink);
+    font-size: 12px;
+    text-align: center;
+    border-radius: 999px;
+    padding: 6px 14px;
+    font-style: italic;
+  }
+  .options {
+    align-self: flex-start;
+    display: flex; flex-wrap: wrap; gap: 8px;
+    max-width: 100%;
+    margin-top: 4px;
+  }
+  .options button {
+    appearance: none;
+    border: 1px solid var(--credo-red);
+    background: #fff;
+    color: var(--credo-red);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font: inherit;
+    font-size: 13px;
+    cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+    text-align: left;
+  }
+  .options button:hover { background: var(--credo-red); color: #fff; }
+
+  /* On mobile mock, stack buttons full-width like Tidio does */
+  .preview.mobile .options { flex-direction: column; align-items: stretch; }
+  .preview.mobile .options button { text-align: center; }
+
+  .typing {
+    align-self: flex-start;
+    display: inline-flex;
+    align-items: center; gap: 4px;
+    background: var(--bot-bubble);
+    padding: 10px 14px;
+    border-radius: 14px;
+    border-bottom-left-radius: 4px;
+  }
+  .typing span {
+    width: 6px; height: 6px; border-radius: 50%;
+    background: var(--ink-faint);
+    animation: typing-bounce 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2) { animation-delay: 0.15s; }
+  .typing span:nth-child(3) { animation-delay: 0.3s; }
+  @keyframes typing-bounce {
+    0%, 80%, 100% { transform: translateY(0); opacity: 0.4; }
+    40% { transform: translateY(-4px); opacity: 1; }
+  }
+
+  /* Input row at the bottom of each chat */
+  .input-row {
+    border-top: 1px solid var(--line);
+    padding: 10px 14px;
+    display: flex; align-items: center; gap: 8px;
+    background: #fff;
+    flex-shrink: 0;
+  }
+  .input-row .field {
+    flex: 1;
+    background: var(--ivory);
+    border: 1px solid transparent;
+    border-radius: 999px;
+    padding: 8px 14px;
+    font: inherit;
+    font-size: 13px;
+    color: var(--ink);
+    outline: none;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .input-row .field::placeholder { color: var(--ink-faint); }
+  .input-row .field:disabled {
+    color: var(--ink-faint);
+    cursor: not-allowed;
+  }
+  .input-row .field.active {
+    background: #fff;
+    border-color: var(--credo-red);
+  }
+  .input-row .send {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    background: var(--credo-red);
+    color: #fff;
+    border: 0;
+    display: grid; place-items: center;
+    font-size: 14px;
+    cursor: pointer;
+    opacity: 0.3;
+    transition: opacity 0.15s;
+  }
+  .input-row .send.active { opacity: 1; }
+  .input-row .send:disabled { cursor: not-allowed; }
+
+  /* Side panel */
+  .side h2 {
+    font-size: 12px; font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.08em;
+    color: var(--ink-faint);
+    margin: 0 0 8px;
+  }
+  .side .card {
+    background: #fff;
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    padding: 16px;
+    margin-bottom: 16px;
+  }
+  .path {
+    font-family: 'SF Mono', ui-monospace, Menlo, monospace;
+    font-size: 11px;
+    color: var(--ink-soft);
+    line-height: 1.8;
+    word-break: break-all;
+  }
+  .path .current { color: var(--credo-red); font-weight: 700; }
+  .path .arrow { color: var(--ink-faint); margin: 0 4px; }
+  .path .choice { display: block; color: var(--ink-faint); padding-left: 16px; font-style: italic; }
+
+  .vars { font-size: 13px; }
+  .vars .var-row { display: flex; justify-content: space-between; padding: 4px 0; border-bottom: 1px solid var(--line); }
+  .vars .var-row:last-child { border-bottom: 0; }
+  .vars .var-key { color: var(--ink-faint); font-family: 'SF Mono', ui-monospace, Menlo, monospace; font-size: 12px; }
+  .vars .var-val { color: var(--ink); font-weight: 500; }
+  .vars .empty { color: var(--ink-faint); font-style: italic; }
+
+  .actions { display: flex; gap: 8px; margin-top: 4px; }
+  .actions button {
+    appearance: none;
+    border: 1px solid var(--line);
+    background: #fff;
+    padding: 6px 12px;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 12px;
+    color: var(--ink-soft);
+    cursor: pointer;
+  }
+  .actions button:hover { border-color: var(--ink-soft); color: var(--ink); }
+
+  .mode-toggle {
+    display: inline-flex;
+    background: var(--ivory);
+    border-radius: 8px;
+    padding: 4px;
+    gap: 2px;
+    width: 100%;
+  }
+  .mode-toggle button {
+    appearance: none;
+    border: 0;
+    background: transparent;
+    padding: 7px 10px;
+    border-radius: 6px;
+    font: inherit;
+    font-size: 12px;
+    cursor: pointer;
+    color: var(--ink-soft);
+    flex: 1;
+    text-align: center;
+    transition: background 0.15s, color 0.15s;
+  }
+  .mode-toggle button.active {
+    background: #fff;
+    color: var(--ink);
+    font-weight: 600;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  }
+  .mode-toggle button:hover:not(.active) { color: var(--ink); }
+  .mode-hint {
+    font-size: 12px;
+    color: var(--ink-faint);
+    margin: 8px 0 0;
+    line-height: 1.5;
+  }
+
+  .legend ul { margin: 0; padding-left: 18px; font-size: 13px; color: var(--ink-soft); }
+  .legend li { margin-bottom: 6px; }
+
+  .meta { font-size: 13px; color: var(--ink-soft); }
+  .meta code { background: var(--ivory); padding: 1px 4px; border-radius: 3px; font-size: 12px; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <h1>Credo chatbot flow — working preview</h1>
+    <p>Click a button or type a response; both panels share state so you can see how the same step renders desktop vs. mobile. Toggle in-hours / out-of-hours to compare the operating-hours overlay.</p>
+  </header>
+
+  <div class="layout">
+    <div class="previews">
+
+      <!-- Desktop -->
+      <div class="preview desktop">
+        <span class="preview-label">Desktop <span class="dim">· 380px corner widget</span></span>
+        <div class="chat" id="chatDesktop">
+          <div class="chat-head">
+            <div class="chat-head-avatar">C</div>
+            <div>
+              <div class="chat-head-title">Credo Legal</div>
+              <div class="chat-head-sub">Typically replies in a few minutes</div>
+            </div>
+            <button class="chat-head-close" aria-hidden="true">×</button>
+          </div>
+          <div class="chat-body" data-body="desktop"></div>
+          <div class="input-row">
+            <input type="text" class="field" data-input="desktop" placeholder="Write a message…" disabled>
+            <button class="send" data-send="desktop" disabled>→</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Mobile -->
+      <div class="preview mobile">
+        <span class="preview-label">Mobile <span class="dim">· 375px near-fullscreen</span></span>
+        <div class="phone">
+          <div class="phone-inner">
+            <div class="status-bar">
+              <span>9:41</span>
+              <span class="dots"><span></span><span></span><span></span></span>
+            </div>
+            <div class="chat" id="chatMobile">
+              <div class="chat-head">
+                <div class="chat-head-avatar">C</div>
+                <div>
+                  <div class="chat-head-title">Credo Legal</div>
+                  <div class="chat-head-sub">Typically replies in a few minutes</div>
+                </div>
+                <button class="chat-head-close" aria-hidden="true">×</button>
+              </div>
+              <div class="chat-body" data-body="mobile"></div>
+              <div class="input-row">
+                <input type="text" class="field" data-input="mobile" placeholder="Write a message…" disabled>
+                <button class="send" data-send="mobile" disabled>→</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </div>
+
+    <aside class="side">
+      <div class="card">
+        <h2>Mode</h2>
+        <div class="mode-toggle">
+          <button data-mode="inHours" class="active">In-hours</button>
+          <button data-mode="outOfHours">After-hours</button>
+        </div>
+        <p class="mode-hint">Switches the welcome + closing variants. Resets the conversation.</p>
+        <div class="actions">
+          <button id="resetBtn">Reset</button>
+        </div>
+      </div>
+      <div class="card">
+        <h2>Captured variables</h2>
+        <div class="vars" id="varsView"><div class="empty">Nothing captured yet</div></div>
+      </div>
+      <div class="card">
+        <h2>Current node</h2>
+        <div class="path" id="pathView"></div>
+      </div>
+      <div class="card legend">
+        <h2>Locked</h2>
+        <ul>
+          <li>Operating-hours overlay (2 divergences)</li>
+          <li>Welcome variants (in / out)</li>
+          <li>Closing variants (in / out, name-personalized)</li>
+          <li>Situation classifier (6 buttons)</li>
+          <li>"Something else" → free-text description</li>
+          <li>Off-ramp + capture cleaned</li>
+          <li>8s welcome delay (matches Tidio)</li>
+        </ul>
+      </div>
+      <div class="card meta">
+        <h2>About this preview</h2>
+        <p style="margin:0;">Design preview of the Credo Tidio chatbot flow. The Tidio implementation is the source of truth; this page mirrors the locked design for review.</p>
+      </div>
+    </aside>
+  </div>
+</div>
+
+<script>
+// ---------------------------------------------------------------------------
+// Flow definition — mirrors the modified Tidio flow.
+// Welcome delay is 8s in both the preview and the Tidio JSON (matches production).
+// ---------------------------------------------------------------------------
+const Q3_BUTTONS = [
+  { label: "I'm being sued / summoned",      next: 'node_4' },
+  { label: "Judgment already entered",       next: 'node_4' },
+  { label: "My wage is garnished",           next: 'node_4' },
+  { label: "Collectors are harassing me",    next: 'node_4' },
+  { label: "Something else",                 next: 'node_13' },  // free-text intermediary
+  { label: "I'm already a client",           next: 'node_5' },
+];
+
+const Q4_BUTTONS = [
+  { label: "Under $6,000",       next: 'node_6' },
+  { label: "$6,000 – $15,000",   next: 'node_6' },
+  { label: "$15,000+",           next: 'node_6' },
+];
+
+const flow = {
+  modes: {
+    inHours:    'node_2_in',
+    outOfHours: 'node_2_out',
+  },
+  nodes: {
+    node_2_in: {
+      type: 'message',
+      content: "Hi and welcome to Credo. Are you struggling with debt? I can check what options you have in about 90 seconds.",
+      next: 'node_3',
+      delay: 8000,  // matches Tidio JSON node 2 (delay: 8)
+    },
+    node_2_out: {
+      type: 'message',
+      content: "Hi and welcome to Credo. Our team is offline right now. I can check what options you have in about 90 seconds, and one of our attorneys will reach out first thing the next business morning.",
+      next: 'node_3',
+      delay: 8000,  // matches Tidio JSON node 11 floating (delay: 8)
+    },
+    node_3: {
+      type: 'decision',
+      message: "Let me help you. Which of these best describes your situation?",
+      buttons: Q3_BUTTONS,
+    },
+    node_4: {
+      type: 'decision',
+      message: "Roughly how much debt are you dealing with?",
+      buttons: Q4_BUTTONS,
+    },
+    node_13: {
+      // Free-text intermediary, only reached via the "Something else" branch.
+      // Captures into `situation_description`, then routes to node_4.
+      type: 'input',
+      message: "Please describe your situation in as many words as you like.",
+      variable: 'situation_description',
+      placeholder: "Tell us what's going on…",
+      next: 'node_4',
+    },
+    node_5: {
+      type: 'message',
+      content: "Got it. Please call our mainline at (212) 461-4026 and we'll route you to your case manager.",
+      terminal: true,
+    },
+    node_6: {
+      type: 'input',
+      message: "I'll have someone check options for you. What's your full name?",
+      variable: 'name',
+      placeholder: 'e.g. Alex Garcia',
+      next: 'node_7',
+    },
+    node_7: {
+      type: 'input',
+      message: "What's the best number to reach you in case we get disconnected or to call you right away?",
+      variable: 'phone',
+      placeholder: 'e.g. (555) 555-0123',
+      next: 'node_8',
+    },
+    node_8: {
+      type: 'input',
+      message: "And what's a good email to send your case details?",
+      variable: 'email',
+      placeholder: 'e.g. you@example.com',
+      // next determined by mode at runtime
+    },
+    node_10_in: {
+      // Two-bubble sequence: each entry renders as a separate chat bubble.
+      type: 'message',
+      content: [
+        "Thanks, {name}. Based on what you told me, you may qualify for legal options.",
+        "Timing matters with cases like this. I can connect you to a specialist right now.",
+      ],
+      next: 'node_9',
+    },
+    node_10_out: {
+      type: 'message',
+      content: "Thanks, {name}. Based on what you told me, you may qualify for legal options. One of our attorneys will reach out first thing the next business morning to walk you through them.",
+      terminal: true,
+    },
+    node_9: {
+      type: 'system',
+      content: "A specialist has joined the conversation.",
+      terminal: true,
+    },
+  },
+};
+
+// ---------------------------------------------------------------------------
+// Runtime
+// ---------------------------------------------------------------------------
+const chatBodies = Array.from(document.querySelectorAll('[data-body]'));
+const inputFields = Array.from(document.querySelectorAll('[data-input]'));
+const sendButtons = Array.from(document.querySelectorAll('[data-send]'));
+const varsView = document.getElementById('varsView');
+const pathView = document.getElementById('pathView');
+
+let currentMode = 'inHours';
+let currentNodeId = null;
+let history = [];   // [{nodeId, choice?, input?}]
+let vars = {};
+let pendingTimers = [];
+
+function start() {
+  pendingTimers.forEach(t => clearTimeout(t));
+  pendingTimers = [];
+  history = [];
+  vars = {};
+  currentNodeId = null;
+  chatBodies.forEach(body => { body.innerHTML = ''; });
+  drawVars();
+  drawPath();
+  setInputActive(false);
+  goTo(flow.modes[currentMode]);
+}
+
+function goTo(nodeId) {
+  currentNodeId = nodeId;
+  history.push({ nodeId });
+  const node = flow.nodes[nodeId];
+  drawPath();
+  if (!node) return;
+
+  if (node.type === 'message') {
+    // Support both single-string and array-of-strings content. Each entry
+    // renders as a separate chat bubble (Tidio's "messages" array behavior).
+    const bubbles = Array.isArray(node.content) ? node.content : [node.content];
+    let i = 0;
+    const renderBubble = () => {
+      if (i >= bubbles.length) {
+        // All bubbles rendered. Apply node.delay before advancing.
+        if (node.terminal) {
+          addSystemMessage('Conversation ended');
+        } else if (node.next) {
+          pendingTimers.push(setTimeout(() => goTo(node.next), node.delay || 600));
+        }
+        return;
+      }
+      showTyping();
+      pendingTimers.push(setTimeout(() => {
+        hideTyping();
+        addBotMessage(substitute(bubbles[i], vars));
+        i++;
+        // Brief pause between bubbles in the same message node.
+        const interBubble = (i < bubbles.length) ? 600 : 0;
+        pendingTimers.push(setTimeout(renderBubble, interBubble));
+      }, 500));
+    };
+    renderBubble();
+  } else if (node.type === 'decision') {
+    showTyping();
+    pendingTimers.push(setTimeout(() => {
+      hideTyping();
+      addBotMessage(node.message);
+      addOptions(node.buttons);
+    }, 400));
+  } else if (node.type === 'input') {
+    showTyping();
+    pendingTimers.push(setTimeout(() => {
+      hideTyping();
+      addBotMessage(node.message);
+      setInputActive(true, node.placeholder || 'Write a message…');
+    }, 400));
+  } else if (node.type === 'system') {
+    addSystemMessage(node.content);
+    if (node.terminal) addSystemMessage('Conversation ended');
+  }
+}
+
+function chooseOption(option) {
+  // Render the visitor's tap as a user message, record it, advance.
+  addUserMessage(option.label);
+  history[history.length - 1].choice = option.label;
+  drawPath();
+  goTo(option.next);
+}
+
+function submitInput(value) {
+  const node = flow.nodes[currentNodeId];
+  if (!node || node.type !== 'input') return;
+  const trimmed = value.trim();
+  if (!trimmed) return;
+  // Capture, render, advance.
+  vars[node.variable] = trimmed;
+  drawVars();
+  addUserMessage(trimmed);
+  history[history.length - 1].input = trimmed;
+  setInputActive(false);
+  inputFields.forEach(f => { f.value = ''; });
+  drawPath();
+  // Node 8's next depends on mode.
+  let next = node.next;
+  if (currentNodeId === 'node_8') {
+    next = currentMode === 'inHours' ? 'node_10_in' : 'node_10_out';
+  }
+  goTo(next);
+}
+
+function substitute(text, vars) {
+  return text.replace(/\{(\w+)\}/g, (_, key) => vars[key] || `{${key}}`);
+}
+
+// ---------------------------------------------------------------------------
+// DOM renderers — each writes to both desktop and mobile bodies.
+// ---------------------------------------------------------------------------
+function addBotMessage(text) {
+  chatBodies.forEach(body => {
+    const row = document.createElement('div');
+    row.className = 'msg bot';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    body.appendChild(row);
+  });
+  scrollToEnd();
+}
+
+function addUserMessage(text) {
+  chatBodies.forEach(body => {
+    const row = document.createElement('div');
+    row.className = 'msg user';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    body.appendChild(row);
+  });
+  scrollToEnd();
+}
+
+function addSystemMessage(text) {
+  chatBodies.forEach(body => {
+    const row = document.createElement('div');
+    row.className = 'msg system';
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble';
+    bubble.textContent = text;
+    row.appendChild(bubble);
+    body.appendChild(row);
+  });
+  scrollToEnd();
+}
+
+function addOptions(buttons) {
+  chatBodies.forEach(body => {
+    const wrap = document.createElement('div');
+    wrap.className = 'options';
+    buttons.forEach(opt => {
+      const btn = document.createElement('button');
+      btn.textContent = opt.label;
+      btn.onclick = () => {
+        // Remove the options block from both panels so the visitor can't double-tap.
+        document.querySelectorAll('.options').forEach(o => o.remove());
+        chooseOption(opt);
+      };
+      wrap.appendChild(btn);
+    });
+    body.appendChild(wrap);
+  });
+  scrollToEnd();
+}
+
+function showTyping() {
+  chatBodies.forEach(body => {
+    const row = document.createElement('div');
+    row.className = 'typing';
+    row.dataset.typing = '1';
+    row.innerHTML = '<span></span><span></span><span></span>';
+    body.appendChild(row);
+  });
+  scrollToEnd();
+}
+
+function hideTyping() {
+  document.querySelectorAll('.typing').forEach(t => t.remove());
+}
+
+function setInputActive(active, placeholder) {
+  inputFields.forEach(f => {
+    f.disabled = !active;
+    f.classList.toggle('active', active);
+    if (placeholder) f.placeholder = placeholder;
+  });
+  sendButtons.forEach(b => {
+    b.disabled = !active;
+    b.classList.toggle('active', active);
+  });
+  if (active) {
+    // Focus the desktop input by default; user can tap the mobile one if they prefer.
+    const desktopInput = inputFields.find(f => f.dataset.input === 'desktop');
+    if (desktopInput) setTimeout(() => desktopInput.focus(), 50);
+  }
+}
+
+function scrollToEnd() {
+  requestAnimationFrame(() => {
+    chatBodies.forEach(b => { b.scrollTop = b.scrollHeight; });
+  });
+}
+
+function drawVars() {
+  const keys = Object.keys(vars);
+  if (!keys.length) {
+    varsView.innerHTML = '<div class="empty">Nothing captured yet</div>';
+    return;
+  }
+  varsView.innerHTML = '';
+  keys.forEach(k => {
+    const row = document.createElement('div');
+    row.className = 'var-row';
+    const key = document.createElement('span');
+    key.className = 'var-key';
+    key.textContent = '{' + k + '}';
+    const val = document.createElement('span');
+    val.className = 'var-val';
+    val.textContent = vars[k];
+    row.appendChild(key);
+    row.appendChild(val);
+    varsView.appendChild(row);
+  });
+}
+
+function drawPath() {
+  if (!history.length) {
+    pathView.innerHTML = '<span class="current">(idle)</span>';
+    return;
+  }
+  pathView.innerHTML = '';
+  history.forEach((step, i) => {
+    const span = document.createElement('span');
+    span.textContent = step.nodeId;
+    if (i === history.length - 1) span.className = 'current';
+    pathView.appendChild(span);
+
+    if (step.choice) {
+      const c = document.createElement('span');
+      c.className = 'choice';
+      c.textContent = '↳ "' + step.choice + '"';
+      pathView.appendChild(c);
+    } else if (step.input) {
+      const c = document.createElement('span');
+      c.className = 'choice';
+      c.textContent = '↳ "' + step.input + '"';
+      pathView.appendChild(c);
+    }
+
+    if (i < history.length - 1) {
+      const a = document.createElement('span');
+      a.className = 'arrow';
+      a.textContent = '→';
+      pathView.appendChild(a);
+    }
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Event wiring
+// ---------------------------------------------------------------------------
+inputFields.forEach(f => {
+  f.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' && !f.disabled) {
+      e.preventDefault();
+      submitInput(f.value);
+    }
+  });
+  f.addEventListener('input', () => {
+    // Mirror the value across both panels so they stay in sync.
+    inputFields.forEach(other => {
+      if (other !== f) other.value = f.value;
+    });
+  });
+});
+
+sendButtons.forEach(b => {
+  b.addEventListener('click', () => {
+    if (b.disabled) return;
+    const value = inputFields[0].value;
+    submitInput(value);
+  });
+});
+
+document.getElementById('resetBtn').addEventListener('click', start);
+
+document.querySelectorAll('[data-mode]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    currentMode = btn.dataset.mode;
+    document.querySelectorAll('[data-mode]').forEach(b =>
+      b.classList.toggle('active', b === btn)
+    );
+    start();
+  });
+});
+
+start();
+</script>
+</body>
+</html>
