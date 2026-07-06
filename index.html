@@ -470,13 +470,13 @@ const flow = {
   nodes: {
     node_2_in: {
       type: 'message',
-      content: "Hi and welcome to Credo. Are you struggling with debt? I can check what options you have in about 90 seconds.",
+      content: "Hi and welcome to Credo. Are you struggling with debt? Answer a few quick questions and I'll line up the legal options that fit your situation. Takes about 90 seconds.",
       next: 'node_3',
       delay: 8000,  // matches Tidio JSON node 2 (delay: 8)
     },
     node_2_out: {
       type: 'message',
-      content: "Hi and welcome to Credo. Our team is offline right now. I can check what options you have in about 90 seconds, and one of our attorneys will reach out first thing the next business morning.",
+      content: "Hi and welcome to Credo. Are you struggling with debt? Answer a few quick questions and I'll line up the legal options that fit your situation. Takes about 90 seconds.",
       next: 'node_3',
       delay: 8000,  // matches Tidio JSON node 11 floating (delay: 8)
     },
@@ -536,7 +536,7 @@ const flow = {
     },
     node_10_out: {
       type: 'message',
-      content: "Thanks, {name}. Based on what you told me, you may qualify for legal options. One of our attorneys will reach out first thing the next business morning to walk you through them.",
+      content: "Thanks, {name}. Based on what you told me, you may qualify for legal options. Our team is offline right now, but one of our attorneys will reach out first thing the next business morning to walk you through them.",
       terminal: true,
     },
     node_9: {
