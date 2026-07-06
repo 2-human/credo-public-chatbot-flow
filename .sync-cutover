@@ -1,0 +1,8 @@
+# sync-cutover verification marker
+#
+# Forces a real content diff under public/chatbot-flow/ so the App-auth sync
+# workflow (GitHub App: private-public-repo-sync) exercises its Contents:Write
+# push path to 2-human/credo-public-chatbot-flow on the deploy-key -> App-auth
+# cutover (2026-07-05). Dotfile: not served by Pages. Safe to delete after the
+# green run is verified.
+2026-07-05: credo sync auth migrated from PUBLIC_REPO_DEPLOY_KEY_* to GitHub App
